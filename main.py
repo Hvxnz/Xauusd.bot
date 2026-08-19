@@ -2,7 +2,7 @@ import requests
 import time
 
 TELEGRAM_TOKEN = "8807059278:AAH-kpLAIUYSonacKjIsOFnBDY_mHCtzGCA"
-CHAT_ID = "8331557493"  # ใส่ Chat ID ของคุณ
+CHAT_ID = "8331557493"
 
 def send_telegram(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -13,7 +13,6 @@ def send_telegram(text):
         print("ส่งข้อความล้มเหลว:", e)
 
 def get_gold_price():
-    # ดึงราคา Real-time (ตัวอย่างใช้ Gold API)
     url = "https://api.gold-api.com/price/XAU"
     try:
         res = requests.get(url).json()
@@ -26,34 +25,45 @@ def check_signal():
     if price is None:
         return
 
-    # === เงื่อนไขสัญญาณเทรด (ปรับเปลี่ยนตาม Strategy ของคุณ) ===
-    # ตัวอย่าง: สั่งซื้อเมื่อราคาลงมาแตะแนวรับ หรือเกิด Breakout
-    buy_zone = 2600.0  # สมมติแนวรับ
+    # === ตั้งค่ากรอบแนวรับ-แนวต้าน (ปรับตัวเลขตามต้องการ) ===
+    buy_zone = 2600.0   # แนวรับ: ถ้าราคาต่ำกว่าหรือเท่ากับจุดนี้ ให้เปิด BUY
+    sell_zone = 2650.0  # แนวต้าน: ถ้าราคาสูงกว่าหรือเท่ากับจุดนี้ ให้เปิด SELL
     
-    # ตัวอย่างการวิเคราะห์ Sentiment / ปัจจัยข่าวเบื้องต้น
-    signal_triggered = False
     message = ""
 
+    # 1. เงื่อนไขสัญญาณ BUY (เก็งกำไรขาขึ้น)
     if price <= buy_zone:
-        signal_triggered = True
         message = (
-            "🚀 **SIGNAL DETECTED: XAU/USD**\n"
+            "🚀 **SIGNAL DETECTED: BUY XAU/USD**\n"
             "-------------------------------------\n"
             f"💰 **Current Price:** ${price:.2f}\n"
-            "📉 **Condition:** เข้าเขตแนวรับสำคัญ (Buy Zone)\n"
+            f"📉 **Condition:** เข้าเขตแนวรับสำคัญ (<= ${buy_zone})\n"
             "🧠 **Sentiment:** Risk-Off (แรงซื้อสินทรัพย์ปลอดภัย)\n"
             "-------------------------------------\n"
             "💡 **Action Suggestion:** พิจารณาเปิดออเดอร์ BUY"
         )
 
-    if signal_triggered:
+    # 2. เงื่อนไขสัญญาณ SELL (เก็งกำไรขาลง)
+    elif price >= sell_zone:
+        message = (
+            "🔻 **SIGNAL DETECTED: SELL XAU/USD**\n"
+            "-------------------------------------\n"
+            f"💰 **Current Price:** ${price:.2f}\n"
+            f"📈 **Condition:** เข้าเขตแนวต้านสำคัญ (>= ${sell_zone})\n"
+            "🧠 **Sentiment:** Overbought / ติดแนวต้าน\n"
+            "-------------------------------------\n"
+            "💡 **Action Suggestion:** พิจารณาเปิดออเดอร์ SELL"
+        )
+
+    # ส่งแจ้งเตือนถ้าตรงเงื่อนไขข้อใดข้อหนึ่ง
+    if message != "":
         send_telegram(message)
         print(f"[{time.strftime('%H:%M:%S')}] ส่งสัญญาณเรียบร้อย!")
 
-# === เริ่มต้นการรันแบบอัตโนมัติ ===
-print("🤖 เริ่มต้นระบบรันอัตโนมัติเพื่อเฝ้าสัญญาณทองคำ...")
-send_telegram("🟢 **ระบบ Auto-Signal เริ่มทำงานแล้ว** (ระบบจะแจ้งเตือนเมื่อเกิดสัญญาณ)")
+# === เริ่มต้นการรันระบบ ===
+print("🤖 เริ่มต้นระบบรันอัตโนมัติเพื่อเฝ้าสัญญาณทองคำ (BUY & SELL)...")
+send_telegram("🟢 **ระบบ Auto-Signal (BUY/SELL) เริ่มทำงานแล้ว**")
 
 while True:
     check_signal()
-    time.sleep(60)  # เช็คสัญญาณทุกๆ 60 วินาที (1 นาที)
+    time.sleep(60)  # เช็คราคาทุกๆ 60 วินาที
