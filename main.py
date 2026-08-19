@@ -20,50 +20,72 @@ def get_gold_price():
     except Exception:
         return None
 
+# เก็บราคาย้อนหลังเพื่อคำนวณ dynamic zone
+price_history = []
+
+def calculate_dynamic_zones(prices, window=20, deviation=1.5):
+    """คำนวณแนวรับ-แนวต้านไดนามิกตามความผันผวนของราคาจริง"""
+    if len(prices) < window:
+        return None, None
+    
+    recent_prices = prices[-window:]
+    sma = sum(recent_prices) / window
+    variance = sum((x - sma) ** 2 for x in recent_prices) / window
+    std_dev = variance ** 0.5
+    
+    # Dynamic Support (Buy) / Resistance (Sell)
+    buy_zone = sma - (std_dev * deviation)
+    sell_zone = sma + (std_dev * deviation)
+    
+    return buy_zone, sell_zone
+
 def check_signal():
     price = get_gold_price()
     if price is None:
         return
 
-    # === ตั้งค่ากรอบแนวรับ-แนวต้าน (ปรับตัวเลขตามต้องการ) ===
-    buy_zone = 2600.0   # แนวรับ: ถ้าราคาต่ำกว่าหรือเท่ากับจุดนี้ ให้เปิด BUY
-    sell_zone = 2650.0  # แนวต้าน: ถ้าราคาสูงกว่าหรือเท่ากับจุดนี้ ให้เปิด SELL
+    price_history.append(price)
+    # จำกัดขนาดประวัติราคาไว้ที่ 100 ค่า
+    if len(price_history) > 100:
+        price_history.pop(0)
+
+    # คำนวณแนวรับ-แนวต้านแบบขยับตามจริง (ใช้ข้อมูล 20 แท่งล่าสุด)
+    buy_zone, sell_zone = calculate_dynamic_zones(price_history, window=20)
     
+    # หากข้อมูลยังไม่พอคำนวณ ให้ข้ามไปก่อน
+    if buy_zone is None or sell_zone is None:
+        print(f"[{time.strftime('%H:%M:%S')}] กำลังสะสมข้อมูลราคา ({len(price_history)}/20)...")
+        return
+
     message = ""
 
-    # 1. เงื่อนไขสัญญาณ BUY (เก็งกำไรขาขึ้น)
     if price <= buy_zone:
         message = (
-            "🚀 **SIGNAL DETECTED: BUY XAU/USD**\n"
+            "🚀 **DYNAMIC SIGNAL: BUY XAU/USD**\n"
             "-------------------------------------\n"
             f"💰 **Current Price:** ${price:.2f}\n"
-            f"📉 **Condition:** เข้าเขตแนวรับสำคัญ (<= ${buy_zone})\n"
-            "🧠 **Sentiment:** Risk-Off (แรงซื้อสินทรัพย์ปลอดภัย)\n"
+            f"📉 **Dynamic Support:** ${buy_zone:.2f}\n"
             "-------------------------------------\n"
             "💡 **Action Suggestion:** พิจารณาเปิดออเดอร์ BUY"
         )
-
-    # 2. เงื่อนไขสัญญาณ SELL (เก็งกำไรขาลง)
     elif price >= sell_zone:
         message = (
-            "🔻 **SIGNAL DETECTED: SELL XAU/USD**\n"
+            "🔻 **DYNAMIC SIGNAL: SELL XAU/USD**\n"
             "-------------------------------------\n"
             f"💰 **Current Price:** ${price:.2f}\n"
-            f"📈 **Condition:** เข้าเขตแนวต้านสำคัญ (>= ${sell_zone})\n"
-            "🧠 **Sentiment:** Overbought / ติดแนวต้าน\n"
+            f"📈 **Dynamic Resistance:** ${sell_zone:.2f}\n"
             "-------------------------------------\n"
             "💡 **Action Suggestion:** พิจารณาเปิดออเดอร์ SELL"
         )
 
-    # ส่งแจ้งเตือนถ้าตรงเงื่อนไขข้อใดข้อหนึ่ง
     if message != "":
         send_telegram(message)
         print(f"[{time.strftime('%H:%M:%S')}] ส่งสัญญาณเรียบร้อย!")
 
-# === เริ่มต้นการรันระบบ ===
-print("🤖 เริ่มต้นระบบรันอัตโนมัติเพื่อเฝ้าสัญญาณทองคำ (BUY & SELL)...")
-send_telegram("🟢 **ระบบ Auto-Signal (BUY/SELL) เริ่มทำงานแล้ว**")
+print("🤖 เริ่มต้นระบบ Dynamic Auto-Signal (BUY/SELL)...")
+send_telegram("🟢 **ระบบ Dynamic Auto-Signal เริ่มทำงานแล้ว**")
 
 while True:
     check_signal()
-    time.sleep(60)  # เช็คราคาทุกๆ 60 วินาที
+    time.sleep(60)
+        
